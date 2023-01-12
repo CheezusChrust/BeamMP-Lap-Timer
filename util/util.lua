@@ -13,7 +13,7 @@ end
 
 function util.FindPlayerByName(s)
     for id, name in pairs(MP.GetPlayers()) do
-        if string.find(name, s) then
+        if string.find(string.lower(name), string.lower(s)) then
             return id
         end
     end
@@ -54,7 +54,7 @@ function util.GetVehicle(id)
 end
 
 function util.GetPos(id)
-    local vehID = util.GetPos(id)
+    local vehID = util.GetVehicle(id)
 
     if not vehID then return end
 

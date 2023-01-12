@@ -4,7 +4,7 @@ local util = require("util/util")
 
 local pointToPoint = true --If true, ignore lap count and treat as a point-to-point rally - the start line is now the finish line
 local totalLaps = 3 --Total lap count
-local minLapTime = 30 --Minimum time, in seconds, before detecting a car after event start OR after a car completes a lap
+local minLapTime = 5 --Minimum time, in seconds, before detecting a car after event start OR after a car completes a lap
 
 local countdown = 5 --How many seconds to count down after running /start, 0 to start instantly
 
@@ -175,7 +175,7 @@ hook.Add("onChatMessage", "LapTimer_ChatControl", function(id, _, str)
 
         if countdown == 0 then
             started = true
-            startTime = timer.systime()
+            startTime = os.clock()
 
             for _, data in pairs(racers) do
                 data.lastLapSysTime = 0
@@ -234,7 +234,17 @@ hook.Add("onPlayerDisconnect", "LapTimer_PlayerLeave", function(id)
 end)
 
 local function checkHitFinish(onHit)
-    if not next(racers) then return end
+    if not racers or not next(racers) then return end
+
+    for racer, data in pairs(racers) do
+        local pos = util.GetPos(racer)
+        local distToFinish = util.PointToLineDist(pos[1], pos[2], p1[1], p1[2], p2[1], p2[2])
+
+        if os.clock() - data.filterTime > minLapTime and distToFinish < 2 then
+            data.filterTime = os.clock()
+            onHit(racer)
+        end
+    end
 end
 
 local function onHitFinishP2P(id)
@@ -270,10 +280,12 @@ local function onHitFinish(id)
         racers[id].filterTime = math.huge
         util.Msg(-1, name .. " has finished with an overall time of " .. util.SecondsToClock(os.clock() - startTime) .. " and a best lap of " .. util.SecondsToClock(racers[id].fastestLap))
         finishedRacers = finishedRacers + 1
-        finishStr = finishStr .. "\n" .. finishedRacers .. ". " .. name .. " (" .. util.SecondsToClock(timer.systime() - startTime) .. ", best: " .. util.SecondsToClock(racers[id].fastestLap) .. ")"
+        finishStr = finishStr .. "\n" .. finishedRacers .. ". " .. name .. " (" .. util.SecondsToClock(os.clock() - startTime) .. ", best: " .. util.SecondsToClock(racers[id].fastestLap) .. ")"
 
         if finishedRacers == util.TableCount(racers) then
-            util.Msg(-1, finishStr)
+            for _, v in ipairs(util.SplitString(finishStr, "\n")) do
+                util.Msg(-1, v)
+            end
 
             reset()
         end
