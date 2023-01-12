@@ -23,7 +23,7 @@ hook.Add("onConsoleInput", "LapTimer_ConControl", function(str)
     local args = util.SplitString(str)
 
     if args[1] == "lt" then
-        if args[2] == "admin" then
+        if args[2] == "promote" then
             local id = util.FindPlayerByName(args[3])
 
             if id > -1 then
@@ -75,9 +75,9 @@ hook.Add("onChatMessage", "LapTimer_ChatControl", function(id, _, str)
     end
 
     if not admins[id] then
-        --util.Msg(id, "You must be an admin to use this command.")
+        util.Msg(id, "You must be an admin to use this command")
 
-        --return 1
+        return 1
     end
 
     if args[2] == "p1" then
@@ -171,6 +171,12 @@ hook.Add("onChatMessage", "LapTimer_ChatControl", function(id, _, str)
             return 1
         end
 
+        if p1[1] == p2[1] and p1[2] == p2[2] then
+            util.Msg(id, "Start line not defined!")
+
+            return 1
+        end
+
         local count = util.TableCount(racers)
 
         if countdown == 0 then
@@ -251,9 +257,6 @@ local function onHitFinishP2P(id)
     local totalTime = os.clock() - startTime
 
     util.Msg(-1, MP.GetPlayers()[id] .. " has finished with a time of " .. util.SecondsToClock(totalTime))
-
-    racers[id].fastestLap = totalTime
-    racers[id].lastLapTime = totalTime
 
     reset()
 end
