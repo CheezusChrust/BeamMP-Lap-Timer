@@ -80,6 +80,38 @@ hook.Add("onChatMessage", "LapTimer_ChatControl", function(id, _, str)
         --return 1
     end
 
+    if args[2] == "p1" then
+        local pos = util.GetPos(id)
+
+        if not pos then
+            util.Msg(id, "You are not in a vehicle")
+
+            return 1
+        end
+
+        p1 = pos
+
+        util.Msg(id, "Set p1 to " .. math.floor(p1[1]) .. ", " .. math.floor(p1[2]))
+
+        return 1
+    end
+
+    if args[2] == "p2" then
+        local pos = util.GetPos(id)
+
+        if not pos then
+            util.Msg(id, "You are not in a vehicle")
+
+            return 1
+        end
+
+        p2 = pos
+
+        util.Msg(id, "Set p2 to " .. math.floor(p2[1]) .. ", " .. math.floor(p2[2]))
+
+        return 1
+    end
+
     if args[2] == "add" and args[3] then
         local ply = util.FindPlayerByName(args[3])
 
@@ -259,3 +291,5 @@ timer.Create("LapTimer_Interval", 0, 0, function()
 
     checkHitFinish(onHitFinish)
 end)
+
+print("LapTimer loaded!")

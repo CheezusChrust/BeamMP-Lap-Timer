@@ -43,6 +43,24 @@ function util.LoadTable(name)
 
 end
 
+function util.GetVehicle(id)
+    local vehicles = MP.GetPlayerVehicles(id)
+
+    if not vehicles then return end
+
+    for vehID, _ in pairs(MP.GetPlayerVehicles(id)) do
+        return vehID
+    end
+end
+
+function util.GetPos(id)
+    local vehID = util.GetPos(id)
+
+    if not vehID then return end
+
+    return MP.GetPositionRaw(id, vehID).pos
+end
+
 function util.PointToLineDist(x, y, x1, y1, x2, y2)
     local A = x - x1
     local B = y - y1
