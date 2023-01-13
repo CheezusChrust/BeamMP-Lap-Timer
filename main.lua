@@ -234,7 +234,9 @@ hook.Add("onChatMessage", "LapTimer_ChatControl", function(id, _, str)
 end)
 
 hook.Add("onPlayerDisconnect", "LapTimer_PlayerLeave", function(id)
-    util.Msg(-1, MP.GetPlayers()[id] .. " has retired from the event")
+    if racers[id] then
+        util.Msg(-1, MP.GetPlayers()[id] .. " has retired from the event")
+    end
 
     racers[id] = nil
 end)
@@ -244,11 +246,22 @@ local function checkHitFinish(onHit)
 
     for racer, data in pairs(racers) do
         local pos = util.GetPos(racer)
-        local distToFinish = util.PointToLineDist(pos[1], pos[2], p1[1], p1[2], p2[1], p2[2])
 
-        if os.clock() - data.filterTime > minLapTime and distToFinish < 2 then
-            data.filterTime = os.clock()
-            onHit(racer)
+        if pos then
+            local distToFinish = util.PointToLineDist(pos[1], pos[2], p1[1], p1[2], p2[1], p2[2])
+
+            if os.clock() - data.filterTime > minLapTime and distToFinish < 2 then
+                data.filterTime = os.clock()
+                onHit(racer)
+            end
+        else
+            util.Msg(-1, MP.GetPlayers()[racer] .. " has retired from the event")
+
+            racers[racer] = nil
+
+            if util.TableCount(racers) == 0 then
+                reset()
+            end
         end
     end
 end
