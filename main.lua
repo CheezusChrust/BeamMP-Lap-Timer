@@ -2,13 +2,12 @@ local hook = require("util/hook")
 local timer = require("util/timer")
 local util = require("util/util")
 
-local pointToPoint = true --If true, ignore lap count and treat as a point-to-point rally - the start line is now the finish line
-local totalLaps = 3 --Total lap count
-local minLapTime = 5 --Minimum time, in seconds, before detecting a car after event start OR after a car completes a lap
+local pointToPoint = true -- If true, ignore lap count and treat as a point-to-point rally - the start line is now the finish line
+local totalLaps = 3 -- Total lap count
+local minLapTime = 5 -- Minimum time, in seconds, before detecting a car after event start OR after a car completes a lap
+local countdown = 5 -- How many seconds to count down after running /start, 0 to start instantly
 
-local countdown = 5 --How many seconds to count down after running /start, 0 to start instantly
-
---Ignore everything below here
+-- Ignore everything below here
 
 local started = false
 local startTime
@@ -16,8 +15,8 @@ local racers = {}
 local finishedRacers = 0
 local finishStr = "Final results:"
 local admins = {}
-local p1 = {0, 0}
-local p2 = {0, 0}
+local p1 = {0, 0} -- Start line position 1
+local p2 = {0, 0} -- Start line position 2
 
 hook.Add("onConsoleInput", "LapTimer_ConControl", function(str)
     local args = util.SplitString(str)
@@ -53,8 +52,8 @@ local function addRacer(ply)
     racers[ply] = {
         filterTime = 0,
         lap = 0,
-        lastLapTime = 0,
-        lastLapSysTime = 0, --systime at which the last lap was completed
+        lastLapDuration = 0,
+        lastLapFinishTime = 0,
         fastestLap = math.huge
     }
 end
@@ -184,7 +183,7 @@ hook.Add("onChatMessage", "LapTimer_ChatControl", function(id, _, str)
             startTime = os.clock()
 
             for _, data in pairs(racers) do
-                data.lastLapSysTime = 0
+                data.lastLapFinishTime = 0
                 data.filterTime = 0
             end
 
@@ -210,7 +209,7 @@ hook.Add("onChatMessage", "LapTimer_ChatControl", function(id, _, str)
                     startTime = os.clock()
 
                     for _, data in pairs(racers) do
-                        data.lastLapSysTime = 0
+                        data.lastLapFinishTime = 0
                         data.filterTime = 0
                     end
                 end
@@ -276,21 +275,21 @@ end
 
 local function onHitFinish(id)
     racers[id].lap = racers[id].lap + 1
-    local lastLapTime = os.clock() - racers[id].lastLapSysTime
-    racers[id].lastLapSysTime = os.clock()
+    local lastLapDuration = os.clock() - racers[id].lastLapFinishTime
+    racers[id].lastLapFinishTime = os.clock()
 
     local name = MP.GetPlayers()[id]
 
     if racers[id].lap > 1 then
-        if lastLapTime < racers[id].fastestLap and racers[id].lap > 1 then
-            racers[id].fastestLap = lastLapTime
+        if lastLapDuration < racers[id].fastestLap and racers[id].lap > 1 then
+            racers[id].fastestLap = lastLapDuration
         end
 
-        racers[id].lastLapTime = lastLapTime
+        racers[id].lastLapDuration = lastLapDuration
     end
 
     if racers[id].lap < totalLaps + 1 then
-        local prev = racers[id].lap == 1 and "" or (" (prev lap: " .. util.SecondsToClock(lastLapTime) .. ")")
+        local prev = racers[id].lap == 1 and "" or (" (prev lap: " .. util.SecondsToClock(lastLapDuration) .. ")")
         util.Msg(-1, name .. " is on lap " .. racers[id].lap .. prev)
     else
         racers[id].filterTime = math.huge
