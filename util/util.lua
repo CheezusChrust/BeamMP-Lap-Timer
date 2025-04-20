@@ -1,6 +1,6 @@
-local util = {}
+local ltUtil = {}
 
-function util.SplitString(input, sep)
+function ltUtil.SplitString(input, sep)
     sep = sep or "%s"
     local t = {}
 
@@ -11,39 +11,53 @@ function util.SplitString(input, sep)
     return t
 end
 
-function util.FindPlayerByName(s)
+function ltUtil.FindPlayerByName(s)
     for id, name in pairs(MP.GetPlayers()) do
         if string.find(string.lower(name), string.lower(s)) then
             return id
         end
     end
-
-    return -1
 end
 
-function util.Msg(id, ...)
+function ltUtil.Msg(id, ...)
     MP.SendChatMessage(id, "[LapTimer] " .. table.concat({...}, " "))
 end
 
-function util.TableCount(tbl)
+function ltUtil.TableCount(tbl)
     local n = 0
 
-    for _, _ in pairs(tbl) do
+    for _ in pairs(tbl) do
         n = n + 1
     end
 
     return n
 end
 
-function util.SaveTable(name, tbl)
+function ltUtil.SaveConfig(name, config)
+    FS.CreateDirectory("laptimer")
 
+    local f = io.open("laptimer/" .. name .. ".json", "w+")
+
+    if f then
+        f:write(Util.JsonPrettify(Util.JsonEncode(config)))
+        f:close()
+    end
 end
 
-function util.LoadTable(name)
+function ltUtil.LoadConfig(name)
+    local f = io.open("laptimer/" .. name .. ".json", "r")
 
+    if f then
+        local config = Util.JsonDecode(f:read("*all"))
+        f:close()
+
+        return config
+    else
+        return
+    end
 end
 
-function util.GetVehicle(id)
+function ltUtil.GetVehicle(id)
     local vehicles = MP.GetPlayerVehicles(id)
 
     if not vehicles then return end
@@ -53,15 +67,15 @@ function util.GetVehicle(id)
     end
 end
 
-function util.GetPos(id)
-    local vehID = util.GetVehicle(id)
+function ltUtil.GetPos(id)
+    local vehID = ltUtil.GetVehicle(id)
 
     if not vehID then return end
 
     return MP.GetPositionRaw(id, vehID).pos
 end
 
-function util.PointToLineDist(x, y, x1, y1, x2, y2)
+function ltUtil.PointToLineDist(x, y, x1, y1, x2, y2)
     local A = x - x1
     local B = y - y1
     local C = x2 - x1
@@ -94,7 +108,7 @@ function util.PointToLineDist(x, y, x1, y1, x2, y2)
     return math.sqrt(dx * dx + dy * dy)
 end
 
-function util.SecondsToClock(seconds)
+function ltUtil.SecondsToClock(seconds)
     local neg = seconds < 0
     seconds = math.abs(seconds)
     local hours = string.format("%02.f", math.floor(seconds / 3600))
@@ -105,4 +119,4 @@ function util.SecondsToClock(seconds)
     return (neg and "-" or "") .. mins .. ":" .. secs .. "." .. milisecs
 end
 
-return util
+return ltUtil

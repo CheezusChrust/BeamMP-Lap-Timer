@@ -2,7 +2,8 @@ local hook = {}
 local emptyFunc = function() end
 
 function hook.Add(name, id, func)
-    local funcName = "hook_" .. name .. id
+    local funcName = "hook_" .. name .. "_" .. id
+
     _G[funcName] = func
 
     MP.RegisterEvent(name, funcName)

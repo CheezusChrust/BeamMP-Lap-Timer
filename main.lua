@@ -1,48 +1,122 @@
 local hook = require("util/hook")
 local timer = require("util/timer")
-local util = require("util/util")
+local ltUtil = require("util/util")
 
-local pointToPoint = true -- If true, ignore lap count and treat as a point-to-point rally - the start line is now the finish line
-local totalLaps = 3 -- Total lap count
-local minLapTime = 5 -- Minimum time, in seconds, before detecting a car after event start OR after a car completes a lap
-local countdown = 5 -- How many seconds to count down after running /start, 0 to start instantly
+local config = {}
+
+config.pointToPoint = 1 -- If non-zero, ignore lap count and treat as a point-to-point rally - the start line is now the finish line
+config.totalLaps = 3 -- Total lap count
+config.minLapTime = 5 -- Minimum time, in seconds, before detecting a car after event start OR after a car completes a lap
+config.countdown = 5 -- How many seconds to count down after running /start, 0 to start instantly
+config.p1 = {0, 0}
+config.p2 = {0, 0}
 
 -- Ignore everything below here
 
 local started = false
-local startTime
+local timerObj
 local racers = {}
 local finishedRacers = 0
 local finishStr = "Final results:"
 local admins = {}
-local p1 = {0, 0} -- Start line position 1
-local p2 = {0, 0} -- Start line position 2
+
+local function tostring2(var)
+    if type(var) == "table" then
+        local ret = "{" .. tostring2(var[1])
+
+        for i = 2, #var do
+            ret = ret .. ", " .. tostring2(var[i])
+        end
+
+        return ret .. "}"
+    else
+        return tostring(var)
+    end
+end
 
 hook.Add("onConsoleInput", "LapTimer_ConControl", function(str)
-    local args = util.SplitString(str)
+    local args = ltUtil.SplitString(str)
 
     if args[1] == "lt" then
         if args[2] == "promote" then
-            local id = util.FindPlayerByName(args[3])
+            if args[3] then
+                local id = ltUtil.FindPlayerByName(args[3])
 
-            if id > -1 then
-                admins[id] = true
+                if id then
+                    admins[id] = true
 
-                return "Promoted " .. MP.GetPlayers()[id] .. " to lap timer admin"
+                    return "Promoted " .. MP.GetPlayers()[id] .. " to lap timer admin"
+                else
+                    return "Couldn't find player with name '" .. (args[3] or "") .. "'"
+                end
             else
-                return "Couldn't find player with name '" .. args[3] .. "'"
+                return "You must specify a player name"
             end
         end
 
         if args[2] == "demote" then
-            local id = util.FindPlayerByName(args[3])
+            if args[3] then
+                local id = ltUtil.FindPlayerByName(args[3])
 
-            if id > -1 and admins[id] then
-                admins[id] = nil
+                if id and admins[id] then
+                    admins[id] = nil
 
-                return "Demoted " .. MP.GetPlayers()[id] .. " from lap timer admin"
+                    return "Demoted " .. MP.GetPlayers()[id] .. " from lap timer admin"
+                else
+                    return "Couldn't find admin with name '" .. (args[3] or "") .. "'"
+                end
             else
-                return "Couldn't find admin with name '" .. args[3] .. "'"
+                return "You must specify a player name"
+            end
+        end
+
+        if args[2] == "config" then
+            if args[3] then
+                if config[args[3]] then
+                    if args[4] then
+                        config[args[3]] = tonumber(args[4])
+
+                        return "Set " .. args[3] .. " to " .. config[args[3]]
+                    else
+                        return args[3] .. " = " .. config[args[3]]
+                    end
+                else
+                    return "Invalid key '" .. args[3] .. "'"
+                end
+            else
+                local ret = "Config:"
+
+                for k, v in pairs(config) do
+                    ret = ret .. "\n" .. k .. " = " .. tostring2(v)
+                end
+
+                return ret
+            end
+        end
+
+        if args[2] == "savecfg" then
+            if args[3] then
+                ltUtil.SaveConfig(args[3], config)
+
+                return "Saved configuration '" .. args[3] .. "'"
+            else
+                return "You must specify a configuration name"
+            end
+        end
+
+        if args[2] == "loadcfg" then
+            if args[3] then
+                local newConfig = ltUtil.LoadConfig(args[3])
+
+                if newConfig then
+                    config = newConfig
+
+                    return "Loaded configuration '" .. args[3] .. "'"
+                else
+                    return "Couldn't find configuration with name '" .. (args[3] or "") .. "'"
+                end
+            else
+                return "You must specify a configuration name"
             end
         end
     end
@@ -67,77 +141,77 @@ local function reset()
 end
 
 hook.Add("onChatMessage", "LapTimer_ChatControl", function(id, _, str)
-    local args = util.SplitString(str)
+    local args = ltUtil.SplitString(str)
 
     if args[1] ~= "/lt" then
         return
     end
 
     if not admins[id] then
-        util.Msg(id, "You must be an admin to use this command")
+        ltUtil.Msg(id, "You must be an admin to use this command")
 
         return 1
     end
 
     if args[2] == "p1" then
-        local pos = util.GetPos(id)
+        local pos = ltUtil.GetPos(id)
 
         if not pos then
-            util.Msg(id, "You are not in a vehicle")
+            ltUtil.Msg(id, "You are not in a vehicle")
 
             return 1
         end
 
-        p1 = pos
+        config.p1 = pos
 
-        util.Msg(id, "Set p1 to " .. math.floor(p1[1]) .. ", " .. math.floor(p1[2]))
+        ltUtil.Msg(id, "Set p1 to " .. math.floor(config.p1[1]) .. ", " .. math.floor(config.p1[2]))
 
         return 1
     end
 
     if args[2] == "p2" then
-        local pos = util.GetPos(id)
+        local pos = ltUtil.GetPos(id)
 
         if not pos then
-            util.Msg(id, "You are not in a vehicle")
+            ltUtil.Msg(id, "You are not in a vehicle")
 
             return 1
         end
 
-        p2 = pos
+        config.p2 = pos
 
-        util.Msg(id, "Set p2 to " .. math.floor(p2[1]) .. ", " .. math.floor(p2[2]))
+        ltUtil.Msg(id, "Set p2 to " .. math.floor(config.p2[1]) .. ", " .. math.floor(config.p2[2]))
 
         return 1
     end
 
     if args[2] == "add" and args[3] then
-        local ply = util.FindPlayerByName(args[3])
+        local ply = ltUtil.FindPlayerByName(args[3])
 
         if ply == -1 then
-            util.Msg(id, "Player not found")
+            ltUtil.Msg(id, "Player not found")
 
             return 1
         end
 
         if racers[ply] then
-            util.Msg(id, "Player already in event")
+            ltUtil.Msg(id, "Player already in event")
 
             return 1
         end
 
         addRacer(ply)
 
-        util.Msg(id, "Added " .. MP.GetPlayers()[ply])
+        ltUtil.Msg(id, "Added " .. MP.GetPlayers()[ply])
 
         return 1
     end
 
     if args[2] == "remove" and args[3] then
-        local ply = util.FindPlayerByName(args[3])
+        local ply = ltUtil.FindPlayerByName(args[3])
 
-        if ply == -1 or not racers[ply] then
-            util.Msg(id, "Player not found in event")
+        if not ply or not racers[ply] then
+            ltUtil.Msg(id, "Player not found in event")
 
             return 1
         end
@@ -145,68 +219,68 @@ hook.Add("onChatMessage", "LapTimer_ChatControl", function(id, _, str)
         racers[ply] = nil
 
         if started then
-            util.Msg(-1, MP.GetPlayers()[ply] .. " has retired from the event")
+            ltUtil.Msg(-1, MP.GetPlayers()[ply] .. " has retired from the event")
         end
 
         if not next(racers) then
             reset()
         end
 
-        util.Msg(id, "Removed " .. MP.GetPlayers()[ply])
+        ltUtil.Msg(id, "Removed " .. MP.GetPlayers()[ply])
 
         return 1
     end
 
     if args[2] == "start" then
         if started then
-            util.Msg(id, "An event is currently running, type '/lt reset' to reset the script")
+            ltUtil.Msg(id, "An event is currently running, type '/lt reset' to reset the script")
 
             return 1
         end
 
         if not next(racers) then
-            util.Msg(id, "No players added to event")
+            ltUtil.Msg(id, "No players added to event")
 
             return 1
         end
 
-        if p1[1] == p2[1] and p1[2] == p2[2] then
-            util.Msg(id, "Start line not defined!")
+        if config.p1[1] == config.p2[1] and config.p1[2] == config.p2[2] then
+            ltUtil.Msg(id, "Start line not defined!")
 
             return 1
         end
 
-        local count = util.TableCount(racers)
+        local count = ltUtil.TableCount(racers)
 
-        if countdown == 0 then
+        if config.countdown == 0 then
             started = true
-            startTime = os.clock()
+            timerObj = MP.CreateTimer()
 
             for _, data in pairs(racers) do
                 data.lastLapFinishTime = 0
                 data.filterTime = 0
             end
 
-            util.Msg(-1, "A " .. (pointToPoint and "rally" or ("race with " .. count .. " driver" .. (count > 1 and "s" or ""))) .. " has been started!")
+            ltUtil.Msg(-1, "A " .. ((config.pointToPoint ~= 0) and "rally" or ("race with " .. count .. " driver" .. (count > 1 and "s" or ""))) .. " has been started!")
         else
-            timer.Create("LapTimer_Countdown", 1, countdown + 1, function()
+            timer.Create("LapTimer_Countdown", 1, config.countdown + 1, function()
                 local time = timer.RepsLeft("LapTimer_Countdown")
 
                 local txt
 
-                if time == countdown then
-                    txt = "A " .. (pointToPoint and "rally" or ("race with " .. count .. " driver" .. (count > 1 and "s" or ""))) .. " is starting in " .. time .. "..."
+                if time == config.countdown then
+                    txt = "A " .. ((config.pointToPoint ~= 0) and "rally" or ("race with " .. count .. " driver" .. (count > 1 and "s" or ""))) .. " is starting in " .. time .. "..."
                 elseif time > 0 then
                     txt = time .. "..."
                 else
                     txt = "GO!"
                 end
 
-                util.Msg(-1, txt)
+                ltUtil.Msg(-1, txt)
 
                 if time == 0 then
                     started = true
-                    startTime = os.clock()
+                    timerObj = MP.CreateTimer()
 
                     for _, data in pairs(racers) do
                         data.lastLapFinishTime = 0
@@ -219,22 +293,80 @@ hook.Add("onChatMessage", "LapTimer_ChatControl", function(id, _, str)
         return 1
     end
 
-    if args[2] == "reset" then
-        reset()
+    if args[2] == "savecfg" then
+        if not args[3] then
+            ltUtil.Msg(id, "You must specify a name for the configuration")
 
-        util.Msg(id, "Script has been reset")
+            return 1
+        end
+
+        if ltUtil.SaveConfig(args[3], config) then
+            ltUtil.Msg(id, "Saved configuration as '" .. args[3] .. "'")
+        else
+            ltUtil.Msg(id, "Failed to save configuration")
+        end
 
         return 1
     end
 
-    util.Msg(id, "Invalid command")
+    if args[2] == "loadcfg" then
+        if not args[3] then
+            ltUtil.Msg(id, "You must specify a name for the configuration")
+
+            return 1
+        end
+
+        local loadedConfig = ltUtil.LoadConfig(args[3])
+
+        if not loadedConfig then
+            ltUtil.Msg(id, "Failed to load configuration")
+
+            return 1
+        end
+
+        config = loadedConfig
+
+        ltUtil.Msg(id, "Loaded configuration '" .. args[3] .. "'")
+
+        return 1
+    end
+
+    if args[2] == "config" then
+        if args[3] then
+            if config[args[3]] then
+                if args[4] then
+                    config[args[3]] = tonumber(args[4])
+
+                    ltUtil.Msg(id, "Set " .. args[3] .. " to " .. config[args[3]])
+                else
+                    ltUtil.Msg(id, args[3] .. " = " .. config[args[3]])
+                end
+            else
+                ltUtil.Msg(id, "Invalid key '" .. args[3] .. "'")
+            end
+        else
+            ltUtil.Msg(id, "Key not specified")
+        end
+
+        return 1
+    end
+
+    if args[2] == "reset" then
+        reset()
+
+        ltUtil.Msg(id, "Script has been reset")
+
+        return 1
+    end
+
+    ltUtil.Msg(id, "Invalid command")
 
     return 1
 end)
 
 hook.Add("onPlayerDisconnect", "LapTimer_PlayerLeave", function(id)
     if racers[id] then
-        util.Msg(-1, MP.GetPlayers()[id] .. " has retired from the event")
+        ltUtil.Msg(-1, MP.GetPlayers()[id] .. " has retired from the event")
     end
 
     racers[id] = nil
@@ -244,21 +376,21 @@ local function checkHitFinish(onHit)
     if not racers or not next(racers) then return end
 
     for racer, data in pairs(racers) do
-        local pos = util.GetPos(racer)
+        local pos = ltUtil.GetPos(racer)
 
         if pos then
-            local distToFinish = util.PointToLineDist(pos[1], pos[2], p1[1], p1[2], p2[1], p2[2])
+            local distToFinish = ltUtil.PointToLineDist(pos[1], pos[2], config.p1[1], config.p1[2], config.p2[1], config.p2[2])
 
-            if os.clock() - data.filterTime > minLapTime and distToFinish < 2 then
-                data.filterTime = os.clock()
+            if os.time() - data.filterTime > config.minLapTime and distToFinish < 2 then
+                data.filterTime = os.time()
                 onHit(racer)
             end
         else
-            util.Msg(-1, MP.GetPlayers()[racer] .. " has retired from the event")
+            ltUtil.Msg(-1, MP.GetPlayers()[racer] .. " has retired from the event")
 
             racers[racer] = nil
 
-            if util.TableCount(racers) == 0 then
+            if ltUtil.TableCount(racers) == 0 then
                 reset()
             end
         end
@@ -266,17 +398,21 @@ local function checkHitFinish(onHit)
 end
 
 local function onHitFinishP2P(id)
-    local totalTime = os.clock() - startTime
+    local totalTime = timerObj:GetCurrent()
 
-    util.Msg(-1, MP.GetPlayers()[id] .. " has finished with a time of " .. util.SecondsToClock(totalTime))
+    ltUtil.Msg(-1, MP.GetPlayers()[id] .. " has finished with a time of " .. ltUtil.SecondsToClock(totalTime))
 
-    reset()
+    finishedRacers = finishedRacers + 1
+
+    if finishedRacers == ltUtil.TableCount(racers) then
+        reset()
+    end
 end
 
 local function onHitFinish(id)
     racers[id].lap = racers[id].lap + 1
-    local lastLapDuration = os.clock() - racers[id].lastLapFinishTime
-    racers[id].lastLapFinishTime = os.clock()
+    local lastLapDuration = os.time() - racers[id].lastLapFinishTime
+    racers[id].lastLapFinishTime = os.time()
 
     local name = MP.GetPlayers()[id]
 
@@ -288,18 +424,18 @@ local function onHitFinish(id)
         racers[id].lastLapDuration = lastLapDuration
     end
 
-    if racers[id].lap < totalLaps + 1 then
-        local prev = racers[id].lap == 1 and "" or (" (prev lap: " .. util.SecondsToClock(lastLapDuration) .. ")")
-        util.Msg(-1, name .. " is on lap " .. racers[id].lap .. prev)
+    if racers[id].lap < config.totalLaps + 1 then
+        local prev = racers[id].lap == 1 and "" or (" (prev lap: " .. ltUtil.SecondsToClock(lastLapDuration) .. ")")
+        ltUtil.Msg(-1, name .. " is on lap " .. racers[id].lap .. prev)
     else
         racers[id].filterTime = math.huge
-        util.Msg(-1, name .. " has finished with an overall time of " .. util.SecondsToClock(os.clock() - startTime) .. " and a best lap of " .. util.SecondsToClock(racers[id].fastestLap))
+        ltUtil.Msg(-1, name .. " has finished with an overall time of " .. ltUtil.SecondsToClock(timerObj:GetCurrent()) .. " and a best lap of " .. ltUtil.SecondsToClock(racers[id].fastestLap))
         finishedRacers = finishedRacers + 1
-        finishStr = finishStr .. "\n" .. finishedRacers .. ". " .. name .. " (" .. util.SecondsToClock(os.clock() - startTime) .. ", best: " .. util.SecondsToClock(racers[id].fastestLap) .. ")"
+        finishStr = finishStr .. "\n" .. finishedRacers .. ". " .. name .. " (" .. ltUtil.SecondsToClock(timerObj:GetCurrent()) .. ", best: " .. ltUtil.SecondsToClock(racers[id].fastestLap) .. ")"
 
-        if finishedRacers == util.TableCount(racers) then
-            for _, v in ipairs(util.SplitString(finishStr, "\n")) do
-                util.Msg(-1, v)
+        if finishedRacers == ltUtil.TableCount(racers) then
+            for _, v in ipairs(ltUtil.SplitString(finishStr, "\n")) do
+                ltUtil.Msg(-1, v)
             end
 
             reset()
@@ -310,7 +446,7 @@ end
 timer.Create("LapTimer_Interval", 0, 0, function()
     if not started then return end
 
-    if pointToPoint then
+    if config.pointToPoint ~= 0 then
         checkHitFinish(onHitFinishP2P)
 
         return

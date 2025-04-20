@@ -21,7 +21,7 @@ function timer.Create(name, delay, reps, func)
     end
 
     MP.RegisterEvent(name, name)
-    MP.CreateEventTimer(name, math.max(delay * 1000, 25))
+    MP.CreateEventTimer(name, math.floor(math.max(delay * 1000, 25)))
 end
 
 function timer.RepsLeft(name)
